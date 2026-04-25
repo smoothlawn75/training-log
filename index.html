@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Training Log</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0f1e;
+    color: #e2e8f0;
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px 40px;
+  }
+  #app { width: 100%; max-width: 480px; }
+
+  /* Header */
+  .header { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
+  .title { font-family: 'DM Serif Display', serif; font-size: 26px; color: #f8fafc; letter-spacing: -0.5px; line-height: 1.1; }
+  .subtitle { font-size: 11px; color: #64748b; margin-top: 4px; letter-spacing: 0.08em; }
+  .save-status { font-size: 10px; letter-spacing: 0.06em; margin-top: 4px; transition: color 0.3s; }
+
+  /* Week nav */
+  .week-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #0f172a; border-radius: 10px; padding: 10px 14px;
+    border: 1px solid #1e293b; margin-bottom: 16px;
+  }
+  .week-nav button {
+    background: none; border: none; color: #94a3b8; cursor: pointer;
+    font-size: 20px; padding: 0 4px; line-height: 1;
+  }
+  .week-nav button:hover { color: #e2e8f0; }
+  .week-label { font-size: 12px; color: #f8fafc; font-weight: 500; text-align: center; }
+  .week-current { font-size: 10px; color: #38bdf8; margin-top: 2px; letter-spacing: 0.1em; text-align: center; }
+
+  /* Summary cards */
+  .cards { display: flex; gap: 10px; margin-bottom: 16px; }
+  .card {
+    flex: 1; background: #0f172a; border-radius: 12px;
+    padding: 14px 12px; display: flex; flex-direction: column;
+    align-items: center; gap: 8px; border: 1px solid #1e293b;
+    transition: border-color 0.3s;
+  }
+  .card-label { font-size: 9px; color: #94a3b8; letter-spacing: 0.1em; }
+  .ring-wrap { position: relative; }
+  .ring-center {
+    position: absolute; inset: 0; display: flex;
+    flex-direction: column; align-items: center; justify-content: center;
+  }
+  .ring-val { font-size: 14px; font-weight: 700; color: #f8fafc; line-height: 1; }
+  .ring-max { font-size: 8px; color: #64748b; }
+  .card-stats { width: 100%; }
+  .stat-row { display: flex; justify-content: space-between; margin-bottom: 3px; }
+  .stat-row:last-child { margin-bottom: 0; }
+  .formula { font-size: 9px; color: #475569; text-align: center; margin-top: 5px; }
+  .str-status { font-size: 11px; font-weight: 500; text-align: center; }
+  .str-hint { font-size: 9px; color: #334155; margin-top: 5px; text-align: center; }
+
+  /* Day rows */
+  .days { display: flex; flex-direction: column; gap: 4px; }
+  .day-row {
+    display: flex; align-items: center; gap: 8px;
+    background: #0d1117; border: 1px solid #1e293b;
+    border-radius: 8px; padding: 10px 12px;
+    transition: background 0.15s, border-color 0.2s;
+  }
+  .day-row:hover { background: #111827; }
+  .day-row.today { background: #0f1f35; border-color: rgba(29,78,216,0.33); }
+  .day-row.has-str { border-color: rgba(124,58,237,0.27); }
+
+  .day-label { width: 32px; flex-shrink: 0; }
+  .day-name { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #475569; }
+  .day-name.active { color: #94a3b8; }
+  .day-name.today-color { color: #38bdf8; }
+  .today-badge { font-size: 8px; color: #1d4ed8; letter-spacing: 0.08em; }
+
+  .field { flex: 1; }
+  .field-label { font-size: 8px; letter-spacing: 0.08em; margin-bottom: 2px; }
+
+  input[type=number] {
+    width: 100%; background: transparent; border: none;
+    border-bottom: 1px solid #1e293b;
+    font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 500;
+    padding: 2px 0; outline: none; text-align: right; color: inherit;
+    -moz-appearance: textfield;
+  }
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+  input[type=number]:focus { border-bottom-color: currentColor; }
+
+  .eq-col { width: 28px; text-align: right; flex-shrink: 0; }
+  .eq-label { font-size: 8px; color: #64748b; letter-spacing: 0.06em; margin-bottom: 2px; }
+  .eq-val { font-size: 13px; font-weight: 500; }
+
+  .str-btn {
+    flex-shrink: 0; width: 34px; height: 34px; border-radius: 6px;
+    border: 1px solid #1e293b; background: transparent;
+    color: #334155; font-size: 13px; font-family: inherit; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s ease;
+  }
+  .str-btn:active { transform: scale(0.9); }
+  .str-btn.active {
+    border-color: #7c3aed; background: rgba(124,58,237,0.13);
+    color: #a78bfa; font-size: 11px; letter-spacing: -0.5px;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 16px; padding: 10px 14px; background: #0f172a;
+    border-radius: 8px; border: 1px solid #1e293b;
+    font-size: 10px; color: #475569; text-align: center; letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+const MAX_HR = 188;
+const MOD_LOW  = Math.round(MAX_HR * 0.50); // 94
+const MOD_HIGH = Math.round(MAX_HR * 0.70); // 132
+const VIG_LOW  = Math.round(MAX_HR * 0.70); // 132
+const VIG_HIGH = Math.round(MAX_HR * 0.85); // 160
+const CARDIO_TARGET   = 150;
+const STRENGTH_TARGET = 2;
+const STORAGE_KEY = "training_log_v1";
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+function getMondayOfWeek(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function addWeeks(date, n) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + 7 * n);
+  return d;
+}
+
+function weekKey(monday) {
+  return "week_" + monday.toISOString().slice(0,10);
+}
+
+function formatRange(monday) {
+  const sun = new Date(monday);
+  sun.setDate(sun.getDate() + 6);
+  const o = { month:"short", day:"numeric" };
+  return monday.toLocaleDateString("en-US",o) + " – " + sun.toLocaleDateString("en-US",o);
+}
+
+function emptyWeek() {
+  return DAYS.reduce((a,d) => ({ ...a, [d]: { mod:"", vig:"", str:false } }), {});
+}
+
+function calcEquiv(mod, vig) { return mod + 2 * vig; }
+
+// ── State ─────────────────────────────────────────────────────────────
+
+let state = {
+  currentMonday: getMondayOfWeek(new Date()),
+  weeks: {},
+  editing: null,  // { day, field }
+  saveStatus: "idle" // idle | saving | saved | error
+};
+
+let saveTimer = null;
+let toastTimer = null;
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) state.weeks = JSON.parse(raw);
+  } catch(e) {
+    console.error("Load failed", e);
+  }
+}
+
+function saveToStorage() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.weeks));
+      state.saveStatus = "saved";
+      render();
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { state.saveStatus = "idle"; render(); }, 2000);
+    } catch(e) {
+      state.saveStatus = "error";
+      render();
+    }
+  }, 400);
+  state.saveStatus = "saving";
+}
+
+// ── SVG Progress Ring ─────────────────────────────────────────────────
+
+function progressRing(pct, color, size=68, stroke=5) {
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const filled = Math.min(pct, 1) * circ;
+  return `
+    <svg width="${size}" height="${size}" style="transform:rotate(-90deg)">
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#1e293b" stroke-width="${stroke}"/>
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}"
+        stroke-width="${stroke}" stroke-dasharray="${filled} ${circ}" stroke-linecap="round"
+        style="transition:stroke-dasharray 0.5s ease"/>
+    </svg>`;
+}
+
+// ── Render ────────────────────────────────────────────────────────────
+
+function render() {
+  const today = new Date();
+  const thisMonday = getMondayOfWeek(today);
+  const isThisWeek = state.currentMonday.getTime() === thisMonday.getTime();
+  const todayIdx = (() => { const d = today.getDay(); return d === 0 ? 6 : d - 1; })();
+  const wk = weekKey(state.currentMonday);
+  const weekData = state.weeks[wk] || emptyWeek();
+
+  // Totals
+  let totMod = 0, totVig = 0, totStr = 0;
+  DAYS.forEach(d => {
+    totMod += parseInt(weekData[d]?.mod) || 0;
+    totVig += parseInt(weekData[d]?.vig) || 0;
+    totStr += weekData[d]?.str ? 1 : 0;
+  });
+  const equiv = calcEquiv(totMod, totVig);
+  const cardioPct = equiv / CARDIO_TARGET;
+  const strPct    = totStr / STRENGTH_TARGET;
+
+  const cardioColor   = cardioPct >= 1 ? "#22c55e" : cardioPct >= 0.6 ? "#f59e0b" : "#38bdf8";
+  const strengthColor = strPct >= 1 ? "#22c55e" : totStr === 1 ? "#f59e0b" : "#a78bfa";
+
+  // Save badge
+  const statusMap = {
+    saving: { text:"Saving…",    color:"#f59e0b" },
+    saved:  { text:"Saved ✓",    color:"#22c55e" },
+    error:  { text:"Save failed ✗", color:"#ef4444" },
+  };
+  const badge = statusMap[state.saveStatus]
+    ? `<div class="save-status" style="color:${statusMap[state.saveStatus].color}">${statusMap[state.saveStatus].text}</div>`
+    : "";
+
+  // Day rows
+  const dayRows = DAYS.map((day, i) => {
+    const isToday = isThisWeek && i === todayIdx;
+    const { mod="", vig="", str=false } = weekData[day] || {};
+    const dayEquiv = calcEquiv(parseInt(mod)||0, parseInt(vig)||0);
+    const hasCardio = (parseInt(mod)||0) + (parseInt(vig)||0) > 0;
+    const hasAny = hasCardio || str;
+    const focusMod = state.editing?.day === day && state.editing?.field === "mod";
+    const focusVig = state.editing?.day === day && state.editing?.field === "vig";
+
+    const rowClass = ["day-row", isToday?"today":"", str?"has-str":""].filter(Boolean).join(" ");
+    const nameClass = ["day-name", isToday?"today-color": hasAny?"active":""].filter(Boolean).join(" ");
+
+    return `
+      <div class="${rowClass}">
+        <div class="day-label">
+          <div class="${nameClass}">${day}</div>
+          ${isToday ? '<div class="today-badge">TODAY</div>' : ""}
+        </div>
+
+        <div class="field">
+          <div class="field-label" style="color:#7dd3fc">MOD</div>
+          <input type="number" min="0" value="${mod}" placeholder="—"
+            data-day="${day}" data-field="mod"
+            style="color:#7dd3fc; border-bottom-color:${focusMod?"#7dd3fc":"#1e293b"}"
+            oninput="handleInput(this)" onfocus="handleFocus('${day}','mod')" onblur="handleBlur()">
+        </div>
+
+        <div class="field">
+          <div class="field-label" style="color:#f472b6">VIG</div>
+          <input type="number" min="0" value="${vig}" placeholder="—"
+            data-day="${day}" data-field="vig"
+            style="color:#f472b6; border-bottom-color:${focusVig?"#f472b6":"#1e293b"}"
+            oninput="handleInput(this)" onfocus="handleFocus('${day}','vig')" onblur="handleBlur()">
+        </div>
+
+        <div class="eq-col">
+          <div class="eq-label">EQ</div>
+          <div class="eq-val" style="color:${hasCardio?"#e2e8f0":"#334155"}">${hasCardio?dayEquiv:"—"}</div>
+        </div>
+
+        <button class="str-btn ${str?"active":""}" onclick="toggleStr('${day}')" title="Log strength session">
+          ${str?"S✓":"S"}
+        </button>
+      </div>`;
+  }).join("");
+
+  // Strength status text
+  const strStatusColor = strPct >= 1 ? "#22c55e" : totStr === 1 ? "#f59e0b" : "#475569";
+  const strStatusText  = strPct >= 1 ? "Goal met ✓" : totStr === 1 ? "1 more needed" : "2 sessions needed";
+
+  document.getElementById("app").innerHTML = `
+    <div class="header">
+      <div>
+        <div class="title">Training Log</div>
+        <div class="subtitle">MOD: ${MOD_LOW}–${MOD_HIGH} BPM · VIG: ${VIG_LOW}–${VIG_HIGH} BPM</div>
+      </div>
+      ${badge}
+    </div>
+
+    <div class="week-nav">
+      <button onclick="shiftWeek(-1)">‹</button>
+      <div>
+        <div class="week-label">${formatRange(state.currentMonday)}</div>
+        ${isThisWeek ? '<div class="week-current">CURRENT WEEK</div>' : ""}
+      </div>
+      <button onclick="shiftWeek(1)">›</button>
+    </div>
+
+    <div class="cards">
+      <div class="card" style="border-color:${cardioPct>=1?"rgba(34,197,94,0.2)":"#1e293b"}">
+        <div class="card-label">CARDIO</div>
+        <div class="ring-wrap">
+          ${progressRing(cardioPct, cardioColor)}
+          <div class="ring-center">
+            <div class="ring-val">${equiv}</div>
+            <div class="ring-max">/${CARDIO_TARGET}</div>
+          </div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-row">
+            <span style="font-size:9px;color:#7dd3fc">MOD</span>
+            <span style="font-size:11px;color:#7dd3fc;font-weight:500">${totMod}m</span>
+          </div>
+          <div class="stat-row">
+            <span style="font-size:9px;color:#f472b6">VIG</span>
+            <span style="font-size:11px;color:#f472b6;font-weight:500">${totVig}m</span>
+          </div>
+          <div class="formula">${totMod}+(2×${totVig})=<span style="color:${cardioPct>=1?"#22c55e":"#94a3b8"}">${equiv}</span></div>
+        </div>
+      </div>
+
+      <div class="card" style="border-color:${strPct>=1?"rgba(34,197,94,0.2)":"#1e293b"}">
+        <div class="card-label">STRENGTH</div>
+        <div class="ring-wrap">
+          ${progressRing(strPct, strengthColor)}
+          <div class="ring-center">
+            <div class="ring-val">${totStr}</div>
+            <div class="ring-max">/${STRENGTH_TARGET}</div>
+          </div>
+        </div>
+        <div>
+          <div class="str-status" style="color:${strStatusColor}">${strStatusText}</div>
+          <div class="str-hint">Tap 【S】 on any day</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="days">${dayRows}</div>
+
+    <div class="footer">
+      Cardio: Mod+(2×Vig) ≥ ${CARDIO_TARGET} min equiv · Strength: ${STRENGTH_TARGET}×/wk
+    </div>`;
+}
+
+// ── Event handlers ────────────────────────────────────────────────────
+
+function shiftWeek(n) {
+  state.currentMonday = addWeeks(state.currentMonday, n);
+  render();
+}
+
+function handleInput(el) {
+  const { day, field } = el.dataset;
+  const val = el.value === "" ? "" : Math.max(0, parseInt(el.value) || 0);
+  const wk = weekKey(state.currentMonday);
+  if (!state.weeks[wk]) state.weeks[wk] = emptyWeek();
+  state.weeks[wk][day][field] = val;
+  saveToStorage();
+  // Re-render just the summary (avoid disrupting focused input)
+  renderSummaryOnly();
+}
+
+function handleFocus(day, field) {
+  state.editing = { day, field };
+  // Update border color without full re-render
+  document.querySelectorAll(`input[data-day="${day}"][data-field="${field}"]`).forEach(el => {
+    el.style.borderBottomColor = field === "mod" ? "#7dd3fc" : "#f472b6";
+  });
+}
+
+function handleBlur() {
+  state.editing = null;
+  document.querySelectorAll("input[type=number]").forEach(el => {
+    const f = el.dataset.field;
+    el.style.borderBottomColor = "#1e293b";
+  });
+}
+
+function toggleStr(day) {
+  const wk = weekKey(state.currentMonday);
+  if (!state.weeks[wk]) state.weeks[wk] = emptyWeek();
+  state.weeks[wk][day].str = !state.weeks[wk][day].str;
+  saveToStorage();
+  render();
+}
+
+// Partial re-render for input changes — keeps focus intact
+function renderSummaryOnly() {
+  const wk = weekKey(state.currentMonday);
+  const weekData = state.weeks[wk] || emptyWeek();
+  let totMod=0, totVig=0, totStr=0;
+  DAYS.forEach(d => {
+    totMod += parseInt(weekData[d]?.mod)||0;
+    totVig += parseInt(weekData[d]?.vig)||0;
+    totStr += weekData[d]?.str ? 1 : 0;
+  });
+  const equiv = calcEquiv(totMod, totVig);
+  const cardioPct = equiv / CARDIO_TARGET;
+  const strPct    = totStr / STRENGTH_TARGET;
+
+  // Update ring SVGs
+  const cardioColor   = cardioPct>=1?"#22c55e":cardioPct>=0.6?"#f59e0b":"#38bdf8";
+  const strengthColor = strPct>=1?"#22c55e":totStr===1?"#f59e0b":"#a78bfa";
+
+  // Update EQ values per day
+  DAYS.forEach(d => {
+    const mod = parseInt(weekData[d]?.mod)||0;
+    const vig = parseInt(weekData[d]?.vig)||0;
+    const eq  = calcEquiv(mod, vig);
+    const hasCardio = mod+vig > 0;
+    const eqEl = document.querySelector(`.day-row:nth-child(${DAYS.indexOf(d)+1}) .eq-val`);
+    if (eqEl) {
+      eqEl.textContent = hasCardio ? eq : "—";
+      eqEl.style.color = hasCardio ? "#e2e8f0" : "#334155";
+    }
+  });
+
+  // Update formula text
+  const formulaEl = document.querySelector(".formula");
+  if (formulaEl) formulaEl.innerHTML = `${totMod}+(2×${totVig})=<span style="color:${cardioPct>=1?"#22c55e":"#94a3b8"}">${equiv}</span>`;
+
+  // Update ring val displays
+  const ringVals = document.querySelectorAll(".ring-val");
+  if (ringVals[0]) ringVals[0].textContent = equiv;
+
+  // Update MOD/VIG totals in card
+  const statSpans = document.querySelectorAll(".card-stats .stat-row span:last-child");
+  if (statSpans[0]) statSpans[0].textContent = totMod + "m";
+  if (statSpans[1]) statSpans[1].textContent = totVig + "m";
+
+  // Update ring SVG circles
+  const circles = document.querySelectorAll("circle:nth-child(2)");
+  function updateCircle(circle, pct, color, size=68, stroke=5) {
+    const r = (size-stroke)/2;
+    const circ = 2*Math.PI*r;
+    const filled = Math.min(pct,1)*circ;
+    circle.setAttribute("stroke", color);
+    circle.setAttribute("stroke-dasharray", `${filled} ${circ}`);
+  }
+  if (circles[0]) updateCircle(circles[0], cardioPct, cardioColor);
+  if (circles[1]) updateCircle(circles[1], strPct, strengthColor);
+
+  // Save status badge
+  const statusMap = {
+    saving: { text:"Saving…", color:"#f59e0b" },
+    saved:  { text:"Saved ✓", color:"#22c55e" },
+    error:  { text:"Save failed ✗", color:"#ef4444" },
+  };
+  let badge = document.querySelector(".save-status");
+  if (statusMap[state.saveStatus]) {
+    if (!badge) {
+      badge = document.createElement("div");
+      badge.className = "save-status";
+      document.querySelector(".header").appendChild(badge);
+    }
+    badge.style.color = statusMap[state.saveStatus].color;
+    badge.textContent = statusMap[state.saveStatus].text;
+  } else if (badge) {
+    badge.textContent = "";
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────
+loadFromStorage();
+render();
+</script>
+</body>
+</html>
